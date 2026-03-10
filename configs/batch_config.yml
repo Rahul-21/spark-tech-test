@@ -1,0 +1,53 @@
+job:
+  name: "mysql_to_csv_incremental"
+
+source:
+  kind: "jdbc"
+  jdbc_url: "jdbc:mysql://localhost:3306/salesdb"
+  driver: "com.mysql.cj.jdbc.Driver"
+  user: "app"
+  password: "app"
+  table: "transactions"
+  incrementing_column: "updated_at"
+  initial_lower_bound: "1970-01-01 00:00:00" 
+  columns:
+    - "id"
+    - "user_id"
+    - "amount"
+    - "currency"
+    - "channel"
+    - "status"
+    - "updated_at"
+
+transform:
+  renames:
+    user_id: "customer_id"
+  static_columns:
+    country: "'AE'"   
+  formulas:
+    amount_with_vat: "ROUND(amount * 1.05, 2)"
+    is_high_value: "CASE WHEN amount >= 500 THEN true ELSE false END"
+  drop_columns:
+    - "status"
+
+select_output:
+  columns:
+    - "id"
+    - "customer_id"
+    - "amount"
+    - "amount_with_vat"
+    - "currency"
+    - "channel"
+    - "country"
+    - "updated_at"
+    - "ingestion_ts"
+
+sink:
+  kind: "csv"       
+  path: "data/out/batch/transactions"
+  csv_options:
+    header: true
+    mode: "append"
+
+checkpoint:
+  path: ".checkpoints/batch_etl.json"   

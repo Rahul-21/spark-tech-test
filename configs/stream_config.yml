@@ -1,0 +1,45 @@
+job:
+  name: "kafka_stream_transform"
+
+kafka:
+  bootstrap_servers: "localhost:19092"
+  subscribe: "transactions_in"
+  metrics_topic: "batch_metrics"
+  startingOffsets: "earliest"      
+  failOnDataLoss: false             
+  maxOffsetsPerTrigger: 5000    
+
+schema:
+  fields:
+    - { name: id,        type: long }
+    - { name: user_id,   type: long }
+    - { name: amount,    type: double }
+    - { name: currency,  type: string }
+    - { name: channel,   type: string }
+    - { name: event_ts,  type: timestamp }
+
+transform:
+  event_time_col: "event_ts"
+  watermark: "10 minutes"
+
+  static_columns:
+    country: "'AE'"
+
+  formulas:
+    event_ts: "to_timestamp(event_ts)"      
+    amount_with_fee: "ROUND(amount * 1.02, 2)"
+    channel_upper:   "UPPER(channel)"
+
+sink:
+  kind: "parquet"                  
+  path: "data/out/stream/transactions"
+  checkpoint: "data/out/stream/_chk"
+
+dlq:
+  enabled: true
+  kind: "kafka"             
+  topic: "transactions_dlq"       
+  checkpoint: "data/out/stream/_chk_dlq"
+
+streaming:
+  trigger: "10 seconds"          
